@@ -563,6 +563,9 @@ public:
 	}
 
   	deque &operator=(const deque &other) {
+		if (this == &other) {
+            return *this;
+        }//self = self.
 		clear();
 		auto iter = other.dataList.cbegin();
 		while(iter != other.dataList.cend()){
@@ -656,11 +659,6 @@ public:
 		delete ptr;
 	}//Merge vic into its prev list.
 
-  	/**
-   	* insert value before pos.
-   	* return an iterator pointing to the inserted value.
-   	* throw if the iterator is invalid or it points to a wrong place.
-   	*/
   	iterator insert(iterator pos, const T &value) {
 		if (pos.parent != this) {throw invalid_iterator();}
 		if (allSize == 0 && pos == end()) {
@@ -681,12 +679,6 @@ public:
 		return get_iterator(index);
   	}
 
-  	/**
-   	* remove the element at pos.
-   	* return an iterator pointing to the following element. if pos points to
-   	* the last element, return end(). throw if the container is empty,
-   	* the iterator is invalid, or it points to a wrong place.
-   	*/
   	iterator erase(iterator pos) {
 		if (!allSize){throw runtime_error();}
 		if (pos.parent != this || pos == end()){throw invalid_iterator();}
@@ -701,8 +693,14 @@ public:
             return end();
         }
 		if((*out) -> listSize() < minBlockSize && dataList.listSize() > 1){
-			merge(out);
-		}
+			if (out == dataList.begin()) {
+                auto nextIter = out;
+                ++nextIter;
+                merge(nextIter);
+            } else {
+                merge(out);
+            }
+		}//Special case: the first block.
 		return get_iterator(index);
 	}
 
@@ -773,8 +771,10 @@ public:
             	return;
         	}
 			if ((*iter) -> listSize() < minBlockSize && dataList.size > 1){
-				merge(iter);
-			}
+				auto nextIter = iter;
+            	++nextIter;
+            	merge(nextIter);
+			}//Handling the first block: merge the next block into the first block.
 		}
 	}
 };

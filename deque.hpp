@@ -171,9 +171,7 @@ public:
 	};
 
 	iterator begin() {return iterator(frontSentinal -> nextNode);}
-	iterator begin() const { return iterator(frontSentinal->nextNode); }
 	iterator end() {return iterator(backSentinal);}
-	iterator end() const { return iterator(backSentinal); } 
 	iterator cbegin() const { return iterator(frontSentinal->nextNode); }
 	iterator cend() const { return iterator(backSentinal); }
 
@@ -426,11 +424,11 @@ public:
 		return *this;
 	}
 
-    T &operator*() const {
+    const T &operator*() const {
 		return *inner;
 	}
 
-    T *operator->() const noexcept {
+    const T *operator->() const noexcept {
 		return inner;
 	}
 
@@ -441,14 +439,14 @@ public:
   	};
 
 	int get_index(iterator it) const {
-    	if (it == end()) {return allSize;}
+    	if (it == cend()) {return allSize;}
     	int idx = 0;
-    	auto out = dataList.begin();
+    	auto out = dataList.cbegin();
     	while (out != it.outer) {
         	idx += (*out)->listSize();
         	++out;
     	}
-    	auto in = (*out)->begin();
+    	auto in = (*out)->cbegin();
     	while (in != it.inner) {
         	++idx;
         	++in;
@@ -473,7 +471,7 @@ public:
 	}
 
 	int get_const_index(const_iterator it) const {
-    	if (it == end()) {return allSize;}
+    	if (it == cend()) {return allSize;}
     	int idx = 0;
     	auto out = dataList.begin();
     	while (out != it.outer) {
@@ -501,16 +499,42 @@ public:
         	idx -= (*out)->listSize();
         	++out;
     	}
-    	return end();
+    	return cend();
 	}
 
-  	deque() {dataList = double_list<double_list<Node>*>();}
+	iterator begin() {
+		if (!allSize){throw container_is_empty();}
+		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
+		return iterator(this, iter, subIter);
+	}
+  	const_iterator cbegin() const {
+		if (!allSize){throw container_is_empty();}
+		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.cbegin();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> cbegin();
+		return const_iterator(this, iter, subIter);
+	}
+
+ 	iterator end() {
+		if (!allSize){throw container_is_empty();}
+		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> end();
+		return iterator(this, iter, subIter);
+	}
+  	const_iterator cend() const {
+		if (!allSize){throw container_is_empty();}
+		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> end();
+		return const_iterator(this, iter, subIter);
+	}
+
+  	deque() {dataList = double_list<double_list<T>*>();}
 
   	deque(const deque &other) {
-		dataList = double_list<double_list<Node>*>();
+		dataList = double_list<double_list<T>*>();
 		auto iter = other.dataList.begin();
 		while(iter != other.dataList.end()){
-			double_list<Node>* ptr = new double_list<Node>(*(*iter));
+			double_list<T>* ptr = new double_list<T>(*(*iter));
 			dataList.insert_tail(ptr);
 			++iter;
 		}
@@ -522,7 +546,7 @@ public:
 		clear();
 		auto iter = other.dataList.begin();
 		while(iter != other.dataList.end()){
-			double_list<Node>* ptr = new double_list<Node>(*(*iter));
+			double_list<T>* ptr = new double_list<T>(*(*iter));
 			dataList.insert_tail(ptr);
 			++iter;
 		}
@@ -532,7 +556,7 @@ public:
 
  	~deque() {
 		for (auto iter = dataList.begin(); iter != dataList.end(); ++iter){
-			typename sjtu::double_list<Node>* ptr = *iter;
+			typename sjtu::double_list<T>* ptr = *iter;
 			delete ptr;
 		}
 	}
@@ -540,7 +564,7 @@ public:
   	T &at(const size_t &pos) {
 		if(!validatePosition(pos)){throw index_out_of_bound();}
 		size_t currentSize = 0;
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = dataList.begin();
+		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
 		while(true){
 			if(currentSize + (*iter) -> listSize() > pos){
 				break;
@@ -548,7 +572,7 @@ public:
 			currentSize += (*iter) -> listSize();
 			++iter;
 		}
-		typename sjtu::double_list<Node>::iterator subIter = (*iter) -> begin();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
 		while(true){
 			++currentSize;
 			if (currentSize - 1 == pos){
@@ -561,7 +585,7 @@ public:
   	const T &at(const size_t &pos) const {
 		if(!validatePosition(pos)){throw index_out_of_bound();}
 		size_t currentSize = 0;
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = dataList.begin();
+		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
 		while(true){
 			if(currentSize + (*iter) -> listSize() > pos){
 				break;
@@ -569,7 +593,7 @@ public:
 			currentSize += (*iter) -> listSize();
 			++iter;
 		}
-		typename sjtu::double_list<Node>::iterator subIter = (*iter) -> begin();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
 		while(true){
 			++currentSize;
 			if (currentSize - 1 == pos){
@@ -593,44 +617,17 @@ public:
 
   	const T &front() const {
 		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = dataList.begin();
-		typename sjtu::double_list<Node>::iterator subIter = (*iter) -> begin();
+		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
 		return *subIter;
 	}
 
   	const T &back() const {
 		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = --dataList.end();
-		typename sjtu::double_list<Node>::iterator subIter = --((*iter) -> end());
+		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
+		typename sjtu::double_list<T>::iterator subIter = --((*iter) -> end());
 		return *subIter;
 	}
-
-  	iterator begin() {
-		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = dataList.begin();
-		typename sjtu::double_list<Node>::iterator subIter = (*iter) -> begin();
-		return iterator(subIter);
-	}
-  	const_iterator cbegin() const {
-		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = dataList.begin();
-		typename sjtu::double_list<Node>::iterator subIter = (*iter) -> begin();
-		return const_iterator(subIter);
-	}
-
- 	iterator end() {
-		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = --dataList.end();
-		typename sjtu::double_list<Node>::iterator subIter = --((*iter) -> end());
-		return iterator(subIter);
-	}
-  	const_iterator cend() const {
-		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<Node>*>::iterator iter = --dataList.end();
-		typename sjtu::double_list<Node>::iterator subIter = --((*iter) -> end());
-		return const_iterator(subIter);
-	}
-
 
   	bool empty() const {return allSize == 0;}
 
@@ -641,17 +638,17 @@ public:
 		updateBoundarySize();
 		while(!dataList.empty()){
 			auto iter = dataList.begin();
-			typename sjtu::double_list<Node>* ptr = *iter;
+			typename sjtu::double_list<T>* ptr = *iter;
 			delete ptr;
 			dataList.erase(iter);
 		}
 	}
 
-	void split(typename sjtu::double_list<double_list<Node>*>::iterator iter){
-		double_list<Node>* ptr = *iter;
-		double_list<Node>* newList = new double_list<Node>();
+	void split(typename sjtu::double_list<double_list<T>*>::iterator iter){
+		double_list<T>* ptr = *iter;
+		double_list<T>* newList = new double_list<T>();
 		size_t cnt = 1;
-		typename double_list<Node>::iterator it = --((*ptr).end());
+		typename double_list<T>::iterator it = --((*ptr).end());
 		auto r = it;
 		while(cnt < (*ptr).listSize() / 2){
 			it -> parentBlock = newList;
@@ -664,10 +661,10 @@ public:
 		dataList.insert_after(iter, newList);
 	}//Split origin into (ori, nxt).
 
-	void merge(typename sjtu::double_list<double_list<Node>*>::iterator vicIter){
+	void merge(typename sjtu::double_list<double_list<T>*>::iterator vicIter){
 		if (vicIter == dataList.begin()){return;}
-		typename sjtu::double_list<double_list<Node>*>::iterator prevIter = vicIter--;
-		typename sjtu::double_list<Node>* ptr = *vicIter;
+		typename sjtu::double_list<double_list<T>*>::iterator prevIter = vicIter--;
+		typename sjtu::double_list<T>* ptr = *vicIter;
 		auto l = ptr -> begin();
 		auto r = --(ptr -> end());
 		for (auto it = l; it != ptr -> end(); ++it){
@@ -683,14 +680,14 @@ public:
    * throw if the iterator is invalid or it points to a wrong place.
    */
   	iterator insert(iterator pos, const T &value) {
-		typename double_list<Node>::iterator iter = pos.getIter();
-		double_list<Node>& block = *(iter -> parentBlock);
+		typename double_list<T>::iterator iter = pos.getIter();
+		double_list<T>& block = *(iter -> parentBlock);
 		block.insert_before(iter, Node(value, &block));
 		auto ret = iter--;
 		++allSize;
 		updateBoundarySize();
 		if (block.listSize() > maxBlockSize){
-			dataList.split(double_list<double_list<Node>*>::iterator(&block));
+			dataList.split(double_list<double_list<T>*>::iterator(&block));
 		}
 		return iterator(ret);
   	}
@@ -703,12 +700,12 @@ public:
    */
   	iterator erase(iterator pos) {
 		if (!allSize){throw runtime_error();}
-		typename double_list<Node>::iterator iter = pos.getIter();
-		double_list<Node>& block = *(iter -> parentBlock);
+		typename double_list<T>::iterator iter = pos.getIter();
+		double_list<T>& block = *(iter -> parentBlock);
 		auto ret = iter++;
 		if (iterator(ret) != end()){
 			if(ret == block.end()){
-				auto dataListIter = double_list<double_list<Node>*>::iterator(&block);
+				auto dataListIter = double_list<double_list<T>*>::iterator(&block);
 				++dataListIter;
 				ret = (*(*dataListIter)).begin();
 			}//Move to the next block if the last node of current block is removed.
@@ -717,20 +714,20 @@ public:
 		allSize--;
 		updateBoundarySize();
 		if(block.listSize() < minBlockSize){
-			dataList.merge(double_list<double_list<Node>*>::iterator(&block));
+			dataList.merge(double_list<double_list<T>*>::iterator(&block));
 		}
 		return iterator(ret) == end() ? end() : iterator(ret);
 	}
 
   	void push_back(const T &value) {
 		if (!allSize){
-			typename sjtu::double_list<Node>* ptr = new sjtu::double_list<Node>();
+			typename sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
 			ptr -> insert_tail(Node(value, ptr));
 			dataList.insert_tail(ptr);
 			++allSize;
 			updateBoundarySize();
 		} else {
-			typename sjtu::double_list<double_list<Node>*>::iterator iter = --dataList.end();
+			typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
 			(*iter) -> insert_tail(Node(value, *iter));
 			++allSize;
 			updateBoundarySize();
@@ -744,7 +741,7 @@ public:
 		if (!allSize){
 			throw runtime_error();
 		} else {
-			typename sjtu::double_list<double_list<Node>*>::iterator iter = --dataList.end();
+			typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
 			(*iter) -> delete_tail();
 			--allSize;
 			updateBoundarySize();
@@ -756,18 +753,18 @@ public:
 
   	void push_front(const T &value) {
 		if (!allSize){
-			typename sjtu::double_list<Node>* ptr = new sjtu::double_list<Node>();
+			typename sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
 			ptr -> insert_head(Node(value, ptr));
 			dataList.insert_head(ptr);
 			++allSize;
 			updateBoundarySize();
 		} else {
-			typename sjtu::double_list<double_list<Node>*>::iterator iter = dataList.begin();
+			typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
 			(*iter) -> insert_head(Node(value, *iter));
 			++allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() > maxBlockSize){
-				dataList.split(double_list<double_list<Node>*>::iterator(&(*iter)));
+				dataList.split(double_list<double_list<T>*>::iterator(&(*iter)));
 			}
 		}
 	}
@@ -776,12 +773,12 @@ public:
 		if (!allSize){
 			throw runtime_error();
 		} else {
-			typename sjtu::double_list<double_list<Node>*>::iterator iter = dataList.begin();
+			typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
 			(*iter) -> delete_head();
 			--allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() < minBlockSize){
-				dataList.merge(double_list<double_list<Node>*>::iterator(&(*iter)));
+				dataList.merge(double_list<double_list<T>*>::iterator(&(*iter)));
 			}
 		}
 	}

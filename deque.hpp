@@ -332,8 +332,8 @@ public:
 
     bool operator==(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
     bool operator==(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
-    bool operator!=(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
-    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator!=(const iterator &rhs) const {return inner != rhs.inner || outer != rhs.outer;}
+    bool operator!=(const const_iterator &rhs) const {return inner != rhs.inner || outer != rhs.outer;}
   };
 
   	class const_iterator {
@@ -422,7 +422,9 @@ public:
 				throw invalid_iterator();
 			}
 			--outer;
-			inner = --((*outer) -> end());
+			auto tmp = (*outer)->end();
+        	--tmp;
+        	inner = tmp; 
 		} else {
 			--inner;
 		}	
@@ -439,19 +441,19 @@ public:
 
     bool operator==(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
     bool operator==(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
-    bool operator!=(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
-    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator!=(const iterator &rhs) const {return inner != rhs.inner || outer != rhs.outer;}
+    bool operator!=(const const_iterator &rhs) const {return inner != rhs.inner || outer != rhs.outer;}
   	};
 
 	int get_index(iterator it) const {
-    	if (it == end()) {return allSize;}
+    	if (it == cend()) {return allSize;}
     	int idx = 0;
-    	auto out = dataList.begin();
+    	auto out = dataList.cbegin();
     	while (out != it.outer) {
         	idx += (*out)->listSize();
         	++out;
     	}
-    	auto in = (*out)->begin();
+    	auto in = (*out)->cbegin();
     	while (in != it.inner) {
         	++idx;
         	++in;
@@ -461,29 +463,29 @@ public:
 
 	iterator get_iterator(int idx) const {
  	    if (idx < 0 || idx > allSize) {throw index_out_of_bound();}
-        if (idx == allSize) return end();
-    	auto out = dataList.begin();
-    	while (out != dataList.end()) {
+        if (idx == allSize) return cend();
+    	auto out = dataList.cbegin();
+    	while (out != dataList.cend()) {
         	if (idx < (*out)->listSize()) {
-            	auto in = (*out)->begin();
+            	auto in = (*out)->cbegin();
             	for (int i = 0; i < idx; ++i) ++in;
             	return iterator(this, out, in);
         	}
         	idx -= (*out)->listSize();
         	++out;
     	}
-    	return end();
+    	return cend();
 	}
 
 	int get_const_index(const_iterator it) const {
     	if (it == cend()) {return allSize;}
     	int idx = 0;
-    	auto out = dataList.begin();
+    	auto out = dataList.cbegin();
     	while (out != it.outer) {
         	idx += (*out)->listSize();
         	++out;
     	}
-    	auto in = (*out)->begin();
+    	auto in = (*out)->cbegin();
     	while (in != it.inner) {
         	++idx;
         	++in;
@@ -493,11 +495,11 @@ public:
 
 	const_iterator get_const_iterator(int idx) const {
  	    if (idx < 0 || idx > allSize) {throw index_out_of_bound();}
-        if (idx == allSize) return end();
-    	auto out = dataList.begin();
-    	while (out != dataList.end()) {
+        if (idx == allSize) return cend();
+    	auto out = dataList.cbegin();
+    	while (out != dataList.cend()) {
         	if (idx < (*out)->listSize()) {
-            	auto in = (*out)->begin();
+            	auto in = (*out)->cbegin();
             	for (int i = 0; i < idx; ++i) ++in;
             	return const_iterator(this, out, in);
         	}
@@ -517,7 +519,7 @@ public:
 	}
   	const_iterator cbegin() const {
 		if (!allSize){
-			return iterator(this, dataList.begin(), typename double_list<T>::iterator());
+			return const_iterator(this, dataList.cbegin(), typename double_list<T>::iterator());
 		}
 		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.cbegin();
 		typename sjtu::double_list<T>::iterator subIter = (*iter) -> cbegin();
@@ -534,10 +536,10 @@ public:
 	}
   	const_iterator cend() const {
 		if (!allSize){
-			return iterator(this, dataList.end(), typename double_list<T>::iterator());
+			return const_iterator(this, dataList.cend(), typename double_list<T>::iterator());
 		}
-		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
-		typename sjtu::double_list<T>::iterator subIter = (*iter) -> end();
+		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.cend();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> cend();
 		return const_iterator(this, iter, subIter);
 	}
 
@@ -629,17 +631,11 @@ public:
 	}
 
   	const T &front() const {
-		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
-		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
-		return *subIter;
+		return *(cbegin());
 	}
 
   	const T &back() const {
-		if (!allSize){throw container_is_empty();}
-		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
-		typename sjtu::double_list<T>::iterator subIter = --((*iter) -> end());
-		return *subIter;
+		return *(--(cend()));
 	}
 
   	bool empty() const {return allSize == 0;}
@@ -687,22 +683,29 @@ public:
 		dataList.erase(vicIter); 
 	}//Merge vic into its prev list.
 
-  /**
-   * insert value before pos.
-   * return an iterator pointing to the inserted value.
-   * throw if the iterator is invalid or it points to a wrong place.
-   */
+  	/**
+   	* insert value before pos.
+   	* return an iterator pointing to the inserted value.
+   	* throw if the iterator is invalid or it points to a wrong place.
+   	*/
   	iterator insert(iterator pos, const T &value) {
-		typename double_list<T>::iterator iter = pos.getIter();
-		double_list<T>& block = *(iter -> parentBlock);
-		block.insert_before(iter, Node(value, &block));
-		auto ret = iter--;
+		if (pos.parent != this) {throw invalid_iterator();}
+		if (allSize == 0 && pos == end()) {
+			sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
+			ptr ->insert_head(value);
+			dataList.insert_head(ptr);
+			return begin();
+		}//Speical case: inserting the first element when the iterator is at the end.
+		typename sjtu::double_list<T>::iterator in = pos.inner;
+		typename sjtu::double_list<double_list<T>*>::iterator out = pos.outer;
+		int index = get_index(pos);
+		(*out) -> insert_before(in, value);
 		++allSize;
 		updateBoundarySize();
-		if (block.listSize() > maxBlockSize){
-			dataList.split(double_list<double_list<T>*>::iterator(&block));
+		if ((*out) -> listSize() > maxBlockSize){
+			dataList.split(out);
 		}
-		return iterator(ret);
+		return get_iterator(index);
   	}
 
   /**

@@ -602,6 +602,7 @@ public:
 
 	void updateBoundarySize(){
 		minBlockSize = static_cast<int>((sqrt(allSize) / 2));
+		if (minBlockSize < 1) {minBlockSize = 1;}//Fix: when allSize is small, make sure to merge the ghost block.
 		maxBlockSize = static_cast<int>((sqrt(allSize) * 2));
 	}
 
@@ -665,6 +666,7 @@ public:
 			sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
 			ptr ->insert_head(value);
 			dataList.insert_head(ptr);
+			++allSize;//Fix: forget to add allSize.
 			return begin();
 		}//Speical case: inserting the first element when the iterator is at the end.
 		typename sjtu::double_list<T>::iterator in = pos.inner;

@@ -9,7 +9,6 @@ namespace sjtu {
 
 template<class T>
 class double_list {
-	//The following part is repeatedly using code before, which is error free.
 public:
 
 	struct node{
@@ -222,6 +221,8 @@ public:
 	}//Insert a node before the iterator
 };
 
+
+
 template <class T> 
 class deque {
 
@@ -247,6 +248,8 @@ public:
             typename double_list<double_list<T>*>::iterator out, 
             typename double_list<T>::iterator in) 
         : parent(p), outer(out), inner(in) {}
+
+	iterator() : parent(nullptr), outer(), inner() {}
 
 	iterator& operator=(const iterator& other){
 		parent = other.parent;
@@ -327,10 +330,10 @@ public:
 		return inner;
 	}
 
-    bool operator==(const iterator &rhs) const {return inner == rhs.inner;}
-    bool operator==(const const_iterator &rhs) const {return inner == rhs.inner;}
-    bool operator!=(const iterator &rhs) const {return inner == rhs.inner;}
-    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner;}
+    bool operator==(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator==(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator!=(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
   };
 
   	class const_iterator {
@@ -346,6 +349,8 @@ public:
             typename double_list<double_list<T>*>::iterator out, 
             typename double_list<T>::iterator in) 
         : parent(p), outer(out), inner(in) {}
+	
+	const_iterator() : parent(nullptr), inner(), outer() {}
 
 	const_iterator(iterator it){
 		parent = it.parent;
@@ -432,21 +437,21 @@ public:
 		return inner;
 	}
 
-    bool operator==(const iterator &rhs) const {return inner == rhs.inner;}
-    bool operator==(const const_iterator &rhs) const {return inner == rhs.inner;}
-    bool operator!=(const iterator &rhs) const {return inner == rhs.inner;}
-    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner;}
+    bool operator==(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator==(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator!=(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
+    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
   	};
 
 	int get_index(iterator it) const {
-    	if (it == cend()) {return allSize;}
+    	if (it == end()) {return allSize;}
     	int idx = 0;
-    	auto out = dataList.cbegin();
+    	auto out = dataList.begin();
     	while (out != it.outer) {
         	idx += (*out)->listSize();
         	++out;
     	}
-    	auto in = (*out)->cbegin();
+    	auto in = (*out)->begin();
     	while (in != it.inner) {
         	++idx;
         	++in;
@@ -503,26 +508,34 @@ public:
 	}
 
 	iterator begin() {
-		if (!allSize){throw container_is_empty();}
+		if (!allSize){
+			return iterator(this, dataList.begin(), typename double_list<T>::iterator());
+		}//Use default instruction to set inner as nullptr, which is a place holder.
 		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
 		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
 		return iterator(this, iter, subIter);
 	}
   	const_iterator cbegin() const {
-		if (!allSize){throw container_is_empty();}
+		if (!allSize){
+			return iterator(this, dataList.begin(), typename double_list<T>::iterator());
+		}
 		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.cbegin();
 		typename sjtu::double_list<T>::iterator subIter = (*iter) -> cbegin();
 		return const_iterator(this, iter, subIter);
 	}
 
  	iterator end() {
-		if (!allSize){throw container_is_empty();}
+		if (!allSize){
+			return iterator(this, dataList.end(), typename double_list<T>::iterator());
+		}
 		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
 		typename sjtu::double_list<T>::iterator subIter = (*iter) -> end();
 		return iterator(this, iter, subIter);
 	}
   	const_iterator cend() const {
-		if (!allSize){throw container_is_empty();}
+		if (!allSize){
+			return iterator(this, dataList.end(), typename double_list<T>::iterator());
+		}
 		typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
 		typename sjtu::double_list<T>::iterator subIter = (*iter) -> end();
 		return const_iterator(this, iter, subIter);

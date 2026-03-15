@@ -171,7 +171,9 @@ public:
 	};
 
 	iterator begin() {return iterator(frontSentinal -> nextNode);}
+	iterator begin() const { return iterator(frontSentinal->nextNode); }
 	iterator end() {return iterator(backSentinal);}
+	iterator end() const { return iterator(backSentinal); } 
 	iterator cbegin() const { return iterator(frontSentinal->nextNode); }
 	iterator cend() const { return iterator(backSentinal); }
 
@@ -186,11 +188,11 @@ public:
 		return iterator(nxt);
 	}
 
-    //The following methods are added for the deque, bugs may occur.
+    //The following methods are added for the deque.
     const size_t listSize() const {
         return size;
     }
-    void cut_tail(iterator l, iterator r, double_list<T>& lst, int length){
+    void cut_tail(iterator l, iterator r, double_list<T>& lst, size_t length){
 		l.holdingNode -> prevNode -> nextNode = r.holdingNode -> nextNode;
 		r.holdingNode -> nextNode -> prevNode = l.holdingNode -> prevNode;
 		//release
@@ -201,7 +203,8 @@ public:
 		lst.size += length;
 		size -= length;
 	}//Cut [l, r] and insert that part to lst tail.
-	void insert_after(iterator pos, T val){
+	void insert_after(iterator pos,const T& val){
+		if (pos == end()) {throw runtime_error();}
         node* currentNode = pos.holdingNode;
         node* newNode = new node(val);
         newNode -> prevNode = currentNode;
@@ -210,7 +213,7 @@ public:
         currentNode -> nextNode = newNode;
         ++size;
     }//Insert a node after the iterator
-	void insert_before(iterator pos, T val){
+	void insert_before(iterator pos,const T& val){
 		node* currentNode = pos.holdingNode;
         node* newNode = new node(val);
         newNode -> nextNode = currentNode;
@@ -224,197 +227,282 @@ public:
 template <class T> 
 class deque {
 
-public:
-	class Node{
-		T val;
-		double_list<Node>* parentBlock;
-		Node(T value, double_list<Node>* ptr) : val(value), parentBlock(ptr) {}
-	};
-
 private:
-	double_list<double_list<Node>*> dataList;
+	double_list<double_list<T>*> dataList;
 	size_t allSize = 0;
 	size_t minBlockSize = 0;
 	size_t maxBlockSize = 0;
 
 public:
+	//The iterator part was fully reinstructed.
   	class const_iterator;
   	class iterator {
+		friend class deque;
+		friend class const_iterator;
   	private:
-		typename double_list<Node>::iterator holdingIter;
+	 	const deque* parent;
+		typename double_list<double_list<T>*>::iterator outer;
+    	typename double_list<T>::iterator inner;
   	public:
-	iterator(typename double_list<Node>::iterator i) : holdingIter(i) {}
+	iterator(
+			const deque* p,
+            typename double_list<double_list<T>*>::iterator out, 
+            typename double_list<T>::iterator in) 
+        : parent(p), outer(out), inner(in) {}
+
+	iterator& operator=(const iterator& other){
+		parent = other.parent;
+		outer = other.outer;
+		inner = other.inner;
+		return *this;
+	}
 
     iterator operator+(const int &n) const {
-		typename double_list<Node>::iterator tmp = holdingIter;
-		for (int i = 0; i < n; ++i){
-			++tmp;
-		}
-		return iterator(tmp);
+		if (n < 0) {return *this - (-n);}
+		int index = parent -> get_index(*this);
+		int tar_index = index + n;
+		return parent -> get_iterator(tar_index);
 	}
     iterator operator-(const int &n) const {
-		typename double_list<Node>::iterator tmp = holdingIter;
-		for (int i = 0; i < n; ++i){
-			--tmp;
-		}
-		return iterator(tmp);
+		if (n < 0) {return *this + (-n);}
+		int index = parent -> get_index(*this);
+		int tar_index = index - n;
+		return parent -> get_iterator(tar_index);
 	}
 
     int operator-(const iterator &rhs) const {
-		if (holdingIter -> parentBlock != rhs.holdingIter -> parentBlock){
-			throw invalid_iterator();
-		}
-		auto tmp1 = holdingIter; 
-		auto tmp2 = holdingIter;
-		size_t cnt1 = 0, cnt2 = 0;
-		while(true){
-			if (tmp1 == rhs.holdingIter){return cnt1;}
-			--tmp1;
-			++cnt1;
-			if (tmp1 == holdingIter -> parentBlock -> begin()){break;}
-		}
-		while(tmp2 != holdingIter -> parentBlock -> end()){
-			if (tmp2 == rhs.holdingIter){return cnt2;}
-			++tmp2;
-			++cnt2;
-		}
-		return -1;
+		if (parent != rhs.parent){throw invalid_iterator();}
+		return parent -> get_index(*this) - parent -> get_index(rhs);
 	}
     iterator &operator+=(const int &n) {
-		for (int i = 0; i < n; ++i){
-			++holdingIter;
-		}
+		*this = *this + n;
 		return *this;
 	}
     iterator &operator-=(const int &n) {
-		for (int i = 0; i < n; ++i){
-			--holdingIter;
-		}
+		*this = *this - n;
 		return *this;
 	}
 
     iterator operator++(int) {
-		return iterator(holdingIter++);
+		iterator tmp = *this; 
+        ++(*this);            
+        return tmp;           
 	}
 
     iterator &operator++() {
-		++holdingIter;
-		return *this;
+		++inner;
+        if (inner == (*outer)->end()) {
+            auto next_outer = outer;
+            ++next_outer; 
+            if (next_outer != parent->dataList.end()) {
+                outer = next_outer;
+                inner = (*outer)->begin();
+            }
+        }
+        return *this;
 	}
 
     iterator operator--(int) {
-		return iterator(holdingIter--);
+		iterator tmp = *this;
+		--(*this);
+		return tmp;
 	}
 
     iterator &operator--() {
-		--holdingIter;
+		if (inner == (*outer) -> begin()){
+			if (outer == parent -> dataList.begin()){
+				throw invalid_iterator();
+			}
+			--outer;
+			inner = --((*outer) -> end());
+		} else {
+			--inner;
+		}	
 		return *this;
 	}
 
     T &operator*() const {
-		return *holdingIter;
+		return *inner;
 	}
 
     T *operator->() const noexcept {
-		return holdingIter;
+		return inner;
 	}
 
-    bool operator==(const iterator &rhs) const {return holdingIter == rhs.holdingIter;}
-    bool operator==(const const_iterator &rhs) const {return holdingIter == rhs.holdingIter;}
-    bool operator!=(const iterator &rhs) const {return holdingIter != rhs.holdingIter;}
-    bool operator!=(const const_iterator &rhs) const {return holdingIter != rhs.holdingIter;}
-
-	typename double_list<Node>::iterator getIter(){return holdingIter;}
+    bool operator==(const iterator &rhs) const {return inner == rhs.inner;}
+    bool operator==(const const_iterator &rhs) const {return inner == rhs.inner;}
+    bool operator!=(const iterator &rhs) const {return inner == rhs.inner;}
+    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner;}
   };
 
-  class const_iterator {
-	private:
-		typename double_list<Node>::iterator holdingIter;
-	public:
-	const_iterator(typename double_list<Node>::iterator i) : holdingIter(i) {}
-	const_iterator(iterator it) : holdingIter(it.getIter()) {}
-   
-	const_iterator operator+(const int &n) const {
-		typename double_list<Node>::iterator tmp = holdingIter;
-		for (int i = 0; i < n; ++i){
-			++tmp;
-		}
-		return const_iterator(tmp);
+  	class const_iterator {
+		friend class deque;
+		friend class iterator;
+  	private:
+	 	const deque* parent;
+		typename double_list<double_list<T>*>::iterator outer;
+    	typename double_list<T>::iterator inner;
+  	public:
+	const_iterator(
+			const deque* p,
+            typename double_list<double_list<T>*>::iterator out, 
+            typename double_list<T>::iterator in) 
+        : parent(p), outer(out), inner(in) {}
+
+	const_iterator(iterator it){
+		parent = it.parent;
+		outer = it.outer;
+		inner = it.inner;
+	}
+
+	const_iterator& operator=(const const_iterator& other){
+		parent = other.parent;
+		outer = other.outer;
+		inner = other.inner;
+		return *this;
+	}
+
+    const_iterator operator+(const int &n) const {
+		if (n < 0) {return *this - (-n);}
+		int index = parent -> get_const_index(*this);
+		int tar_index = index + n;
+		return parent -> get_const_iterator(tar_index);
 	}
     const_iterator operator-(const int &n) const {
-		typename double_list<Node>::iterator tmp = holdingIter;
-		for (int i = 0; i < n; ++i){
-			--tmp;
-		}
-		return const_iterator(tmp);
+		if (n < 0) {return *this + (-n);}
+		int index = parent -> get_const_index(*this);
+		int tar_index = index - n;
+		return parent -> get_const_iterator(tar_index);
 	}
 
     int operator-(const const_iterator &rhs) const {
-		if (holdingIter -> parentBlock != rhs.holdingIter -> parentBlock){
-			throw invalid_iterator();
-		}
-		auto tmp1 = holdingIter; 
-		auto tmp2 = holdingIter;
-		size_t cnt1 = 0, cnt2 = 0;
-		while(true){
-			if (tmp1 == rhs.holdingIter){return cnt1;}
-			--tmp1;
-			++cnt1;
-			if (tmp1 == holdingIter -> parentBlock -> begin()){break;}
-		}
-		while(tmp2 != holdingIter -> parentBlock -> end()){
-			if (tmp2 == rhs.holdingIter){return cnt2;}
-			++tmp2;
-			++cnt2;
-		}
-		return -1;
+		if (parent != rhs.parent){throw invalid_iterator();}
+		return parent -> get_const_index(*this) - parent -> get_const_index(rhs);
 	}
     const_iterator &operator+=(const int &n) {
-		for (int i = 0; i < n; ++i){
-			++holdingIter;
-		}
+		*this = *this + n;
 		return *this;
 	}
     const_iterator &operator-=(const int &n) {
-		for (int i = 0; i < n; ++i){
-			--holdingIter;
-		}
+		*this = *this - n;
 		return *this;
 	}
 
     const_iterator operator++(int) {
-		return const_iterator(holdingIter++);
+		const_iterator tmp = *this; 
+        ++(*this);            
+        return tmp;           
 	}
 
     const_iterator &operator++() {
-		++holdingIter;
-		return *this;
+		++inner;
+        if (inner == (*outer)->end()) {
+            auto next_outer = outer;
+            ++next_outer; 
+            if (next_outer != parent->dataList.end()) {
+                outer = next_outer;
+                inner = (*outer)->begin();
+            }
+        }
+        return *this;
 	}
 
     const_iterator operator--(int) {
-		return const_iterator(holdingIter--);
+		const_iterator tmp = *this;
+		--(*this);
+		return tmp;
 	}
 
     const_iterator &operator--() {
-		--holdingIter;
+		if (inner == (*outer) -> begin()){
+			if (outer == parent -> dataList.begin()){
+				throw invalid_iterator();
+			}
+			--outer;
+			inner = --((*outer) -> end());
+		} else {
+			--inner;
+		}	
 		return *this;
 	}
 
     T &operator*() const {
-		return *holdingIter;
+		return *inner;
 	}
 
     T *operator->() const noexcept {
-		return holdingIter;
+		return inner;
 	}
 
-    bool operator==(const iterator &rhs) const {return holdingIter == rhs.holdingIter;}
-    bool operator==(const const_iterator &rhs) const {return holdingIter == rhs.holdingIter;}
-    bool operator!=(const iterator &rhs) const {return holdingIter != rhs.holdingIter;}
-    bool operator!=(const const_iterator &rhs) const {return holdingIter != rhs.holdingIter;}
+    bool operator==(const iterator &rhs) const {return inner == rhs.inner;}
+    bool operator==(const const_iterator &rhs) const {return inner == rhs.inner;}
+    bool operator!=(const iterator &rhs) const {return inner == rhs.inner;}
+    bool operator!=(const const_iterator &rhs) const {return inner == rhs.inner;}
+  	};
 
-	typename double_list<Node>::iterator getIter(){return holdingIter;}
-  };
+	int get_index(iterator it) const {
+    	if (it == end()) {return allSize;}
+    	int idx = 0;
+    	auto out = dataList.begin();
+    	while (out != it.outer) {
+        	idx += (*out)->listSize();
+        	++out;
+    	}
+    	auto in = (*out)->begin();
+    	while (in != it.inner) {
+        	++idx;
+        	++in;
+    	}
+    	return idx;
+	}
+
+	iterator get_iterator(int idx) const {
+ 	    if (idx < 0 || idx > allSize) {throw index_out_of_bound();}
+        if (idx == allSize) return end();
+    	auto out = dataList.begin();
+    	while (out != dataList.end()) {
+        	if (idx < (*out)->listSize()) {
+            	auto in = (*out)->begin();
+            	for (int i = 0; i < idx; ++i) ++in;
+            	return iterator(this, out, in);
+        	}
+        	idx -= (*out)->listSize();
+        	++out;
+    	}
+    	return end();
+	}
+
+	int get_const_index(const_iterator it) const {
+    	if (it == end()) {return allSize;}
+    	int idx = 0;
+    	auto out = dataList.begin();
+    	while (out != it.outer) {
+        	idx += (*out)->listSize();
+        	++out;
+    	}
+    	auto in = (*out)->begin();
+    	while (in != it.inner) {
+        	++idx;
+        	++in;
+    	}
+    	return idx;
+	}
+
+	const_iterator get_const_iterator(int idx) const {
+ 	    if (idx < 0 || idx > allSize) {throw index_out_of_bound();}
+        if (idx == allSize) return end();
+    	auto out = dataList.begin();
+    	while (out != dataList.end()) {
+        	if (idx < (*out)->listSize()) {
+            	auto in = (*out)->begin();
+            	for (int i = 0; i < idx; ++i) ++in;
+            	return const_iterator(this, out, in);
+        	}
+        	idx -= (*out)->listSize();
+        	++out;
+    	}
+    	return end();
+	}
 
   	deque() {dataList = double_list<double_list<Node>*>();}
 
@@ -647,7 +735,7 @@ public:
 			++allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() > maxBlockSize){
-				dataList.split(double_list<double_list<Node>*>::iterator(&(*iter)));
+				dataList.split(iter);
 			}
 		}
   	}
@@ -661,7 +749,7 @@ public:
 			--allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() < minBlockSize){
-				dataList.merge(double_list<double_list<Node>*>::iterator(&(*iter)));
+				dataList.merge(iter);
 			}
 		}
 	}

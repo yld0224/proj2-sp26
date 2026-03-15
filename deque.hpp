@@ -584,43 +584,11 @@ public:
 
   	T &at(const size_t &pos) {
 		if(!validatePosition(pos)){throw index_out_of_bound();}
-		size_t currentSize = 0;
-		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
-		while(true){
-			if(currentSize + (*iter) -> listSize() > pos){
-				break;
-			}
-			currentSize += (*iter) -> listSize();
-			++iter;
-		}
-		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
-		while(true){
-			++currentSize;
-			if (currentSize - 1 == pos){
-				return *subIter;
-			}
-			++subIter;
-		}
+        return *(get_iterator(pos));
 	}
   	const T &at(const size_t &pos) const {
 		if(!validatePosition(pos)){throw index_out_of_bound();}
-		size_t currentSize = 0;
-		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.cbegin();
-		while(true){
-			if(currentSize + (*iter) -> listSize() > pos){
-				break;
-			}
-			currentSize += (*iter) -> listSize();
-			++iter;
-		}
-		typename sjtu::double_list<T>::iterator subIter = (*iter) -> cbegin();
-		while(true){
-			++currentSize;
-			if (currentSize - 1 == pos){
-				return *subIter;
-			}
-			++subIter;
-		}
+        return *(get_const_iterator(pos));
 	}
   	T &operator[](const size_t &pos) {return at(pos);}
   	const T &operator[](const size_t &pos) const {return at(pos);}
@@ -635,11 +603,13 @@ public:
 	}
 
   	const T &front() const {
-		return *(cbegin());
+		if (!allSize){throw container_is_empty();}
+        return *(get_const_iterator(0));
 	}
 
   	const T &back() const {
-		return *(--(cend()));
+		if (!allSize){throw container_is_empty();}
+        return *(get_const_iterator(allSize - 1));
 	}
 
   	bool empty() const {return allSize == 0;}
@@ -674,12 +644,16 @@ public:
 
 	void merge(typename sjtu::double_list<double_list<T>*>::iterator vicIter){
 		if (vicIter == dataList.begin()){return;}
-		typename sjtu::double_list<double_list<T>*>::iterator prevIter = vicIter--;
+		typename sjtu::double_list<double_list<T>*>::iterator prevIter = vicIter;
+		--prevIter;
 		typename sjtu::double_list<T>* ptr = *vicIter;
-		auto l = ptr -> begin();
-		auto r = --(ptr -> end());
-		ptr -> cut_tail(l, r,*(*prevIter),ptr -> listSize());
-		dataList.erase(vicIter); 
+		if (ptr -> listSize() > 0){
+			auto l = ptr -> begin();
+			auto r = --(ptr -> end());
+			ptr -> cut_tail(l, r,*(*prevIter),ptr -> listSize());
+		}
+		dataList.erase(vicIter);
+		delete ptr;
 	}//Merge vic into its prev list.
 
   	/**
@@ -722,7 +696,11 @@ public:
 		(*out) -> erase(in);
 		--allSize;
 		updateBoundarySize();
-		if((*out) -> listSize() < minBlockSize){
+		if (allSize == 0) {
+            clear();
+            return end();
+        }
+		if((*out) -> listSize() < minBlockSize && dataList.listSize() > 1){
 			merge(out);
 		}
 		return get_iterator(index);
@@ -754,7 +732,11 @@ public:
 			(*iter) -> delete_tail();
 			--allSize;
 			updateBoundarySize();
-			if ((*iter) -> listSize() < minBlockSize){
+			if (allSize == 0) {
+            	clear();
+            	return;
+        	}
+			if ((*iter) -> listSize() < minBlockSize && dataList.size > 1){
 				merge(iter);
 			}
 		}
@@ -786,7 +768,11 @@ public:
 			(*iter) -> delete_head();
 			--allSize;
 			updateBoundarySize();
-			if ((*iter) -> listSize() < minBlockSize){
+			if (allSize == 0) {
+            	clear();
+            	return;
+        	}
+			if ((*iter) -> listSize() < minBlockSize && dataList.size > 1){
 				merge(iter);
 			}
 		}

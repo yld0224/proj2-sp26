@@ -250,6 +250,11 @@ public:
         : parent(p), outer(out), inner(in) {}
 
 	iterator() : parent(nullptr), outer(), inner() {}
+	iterator(const const_iterator it){
+		parent = it.parent;
+		outer = it.outer;
+		inner = it.inner;
+	}
 
 	iterator& operator=(const iterator& other){
 		parent = other.parent;
@@ -295,7 +300,7 @@ public:
         if (inner == (*outer)->end()) {
             auto next_outer = outer;
             ++next_outer; 
-            if (next_outer != parent->dataList.end()) {
+            if (next_outer != (parent->dataList).cend()) {
                 outer = next_outer;
                 inner = (*outer)->begin();
             }
@@ -311,7 +316,7 @@ public:
 
     iterator &operator--() {
 		if (inner == (*outer) -> begin()){
-			if (outer == parent -> dataList.begin()){
+			if (outer == parent -> dataList.cbegin()){
 				throw invalid_iterator();
 			}
 			--outer;
@@ -327,7 +332,7 @@ public:
 	}
 
     T *operator->() const noexcept {
-		return inner;
+		return &(*inner);
 	}
 
     bool operator==(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
@@ -418,7 +423,7 @@ public:
 
     const_iterator &operator--() {
 		if (inner == (*outer) -> begin()){
-			if (outer == parent -> dataList.begin()){
+			if (outer == parent -> dataList.cbegin()){
 				throw invalid_iterator();
 			}
 			--outer;
@@ -436,7 +441,7 @@ public:
 	}
 
     const T *operator->() const noexcept {
-		return inner;
+		return &(*inner);
 	}
 
     bool operator==(const iterator &rhs) const {return inner == rhs.inner && outer == rhs.outer;}
@@ -547,8 +552,8 @@ public:
 
   	deque(const deque &other) {
 		dataList = double_list<double_list<T>*>();
-		auto iter = other.dataList.begin();
-		while(iter != other.dataList.end()){
+		auto iter = other.dataList.cbegin();
+		while(iter != other.dataList.cend()){
 			double_list<T>* ptr = new double_list<T>(*(*iter));
 			dataList.insert_tail(ptr);
 			++iter;
@@ -559,14 +564,15 @@ public:
 
   	deque &operator=(const deque &other) {
 		clear();
-		auto iter = other.dataList.begin();
-		while(iter != other.dataList.end()){
+		auto iter = other.dataList.cbegin();
+		while(iter != other.dataList.cend()){
 			double_list<T>* ptr = new double_list<T>(*(*iter));
 			dataList.insert_tail(ptr);
 			++iter;
 		}
 		allSize = other.allSize;
 		updateBoundarySize();
+		return *this;
 	}
 
  	~deque() {
@@ -591,16 +597,15 @@ public:
 		while(true){
 			++currentSize;
 			if (currentSize - 1 == pos){
-				return subIter -> val;
+				return *subIter;
 			}
 			++subIter;
 		}
-		return T();
 	}
   	const T &at(const size_t &pos) const {
 		if(!validatePosition(pos)){throw index_out_of_bound();}
 		size_t currentSize = 0;
-		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
+		typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.cbegin();
 		while(true){
 			if(currentSize + (*iter) -> listSize() > pos){
 				break;
@@ -608,15 +613,14 @@ public:
 			currentSize += (*iter) -> listSize();
 			++iter;
 		}
-		typename sjtu::double_list<T>::iterator subIter = (*iter) -> begin();
+		typename sjtu::double_list<T>::iterator subIter = (*iter) -> cbegin();
 		while(true){
 			++currentSize;
 			if (currentSize - 1 == pos){
-				return subIter -> val;
+				return *subIter;
 			}
 			++subIter;
 		}
-		return T();
 	}
   	T &operator[](const size_t &pos) {return at(pos);}
   	const T &operator[](const size_t &pos) const {return at(pos);}
@@ -660,12 +664,10 @@ public:
 		typename double_list<T>::iterator it = --((*ptr).end());
 		auto r = it;
 		while(cnt < (*ptr).listSize() / 2){
-			it -> parentBlock = newList;
 			--it;
 			++cnt;
 		}
 		auto l = it;
-		l -> parentBlock = newList;
 		ptr -> cut_tail(l, r, *newList, cnt);
 		dataList.insert_after(iter, newList);
 	}//Split origin into (ori, nxt).
@@ -676,9 +678,6 @@ public:
 		typename sjtu::double_list<T>* ptr = *vicIter;
 		auto l = ptr -> begin();
 		auto r = --(ptr -> end());
-		for (auto it = l; it != ptr -> end(); ++it){
-			it -> parentBlock = *prevIter;
-		}
 		ptr -> cut_tail(l, r,*(*prevIter),ptr -> listSize());
 		dataList.erase(vicIter); 
 	}//Merge vic into its prev list.
@@ -703,52 +702,46 @@ public:
 		++allSize;
 		updateBoundarySize();
 		if ((*out) -> listSize() > maxBlockSize){
-			dataList.split(out);
+			split(out);
 		}
 		return get_iterator(index);
   	}
 
-  /**
-   * remove the element at pos.
-   * return an iterator pointing to the following element. if pos points to
-   * the last element, return end(). throw if the container is empty,
-   * the iterator is invalid, or it points to a wrong place.
-   */
+  	/**
+   	* remove the element at pos.
+   	* return an iterator pointing to the following element. if pos points to
+   	* the last element, return end(). throw if the container is empty,
+   	* the iterator is invalid, or it points to a wrong place.
+   	*/
   	iterator erase(iterator pos) {
 		if (!allSize){throw runtime_error();}
-		typename double_list<T>::iterator iter = pos.getIter();
-		double_list<T>& block = *(iter -> parentBlock);
-		auto ret = iter++;
-		if (iterator(ret) != end()){
-			if(ret == block.end()){
-				auto dataListIter = double_list<double_list<T>*>::iterator(&block);
-				++dataListIter;
-				ret = (*(*dataListIter)).begin();
-			}//Move to the next block if the last node of current block is removed.
-		}
-		block.erase(iter);
-		allSize--;
+		if (pos.parent != this || pos == end()){throw invalid_iterator();}
+		int index = get_index(pos);
+		typename sjtu::double_list<double_list<T>*>::iterator out = pos.outer;
+		typename sjtu::double_list<T>::iterator in = pos.inner;
+		(*out) -> erase(in);
+		--allSize;
 		updateBoundarySize();
-		if(block.listSize() < minBlockSize){
-			dataList.merge(double_list<double_list<T>*>::iterator(&block));
+		if((*out) -> listSize() < minBlockSize){
+			merge(out);
 		}
-		return iterator(ret) == end() ? end() : iterator(ret);
+		return get_iterator(index);
 	}
 
   	void push_back(const T &value) {
 		if (!allSize){
 			typename sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
-			ptr -> insert_tail(Node(value, ptr));
+			ptr -> insert_tail(value);
 			dataList.insert_tail(ptr);
 			++allSize;
 			updateBoundarySize();
 		} else {
 			typename sjtu::double_list<double_list<T>*>::iterator iter = --dataList.end();
-			(*iter) -> insert_tail(Node(value, *iter));
+			(*iter) -> insert_tail(value);
 			++allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() > maxBlockSize){
-				dataList.split(iter);
+				split(iter);
 			}
 		}
   	}
@@ -762,7 +755,7 @@ public:
 			--allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() < minBlockSize){
-				dataList.merge(iter);
+				merge(iter);
 			}
 		}
 	}
@@ -770,17 +763,17 @@ public:
   	void push_front(const T &value) {
 		if (!allSize){
 			typename sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
-			ptr -> insert_head(Node(value, ptr));
+			ptr -> insert_head(value);
 			dataList.insert_head(ptr);
 			++allSize;
 			updateBoundarySize();
 		} else {
 			typename sjtu::double_list<double_list<T>*>::iterator iter = dataList.begin();
-			(*iter) -> insert_head(Node(value, *iter));
+			(*iter) -> insert_head(value);
 			++allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() > maxBlockSize){
-				dataList.split(double_list<double_list<T>*>::iterator(&(*iter)));
+				split(iter);
 			}
 		}
 	}
@@ -794,7 +787,7 @@ public:
 			--allSize;
 			updateBoundarySize();
 			if ((*iter) -> listSize() < minBlockSize){
-				dataList.merge(double_list<double_list<T>*>::iterator(&(*iter)));
+				merge(iter);
 			}
 		}
 	}

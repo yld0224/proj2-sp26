@@ -469,12 +469,33 @@ public:
 	iterator get_iterator(int idx) const {
  	    if (idx < 0 || idx > allSize) {throw index_out_of_bound();}
         if (idx == allSize) return cend();
+		if (cache_valid && idx == last_pos) {
+        	return last_iter;
+    	}
+		if (cache_valid && idx == last_pos + 1) {
+        	iterator tmp = last_iter;
+        	++tmp;
+        	last_pos = idx;
+        	last_iter = tmp;
+        	return tmp;
+    	}
+		if (cache_valid && idx == last_pos - 1) {
+        	iterator tmp = last_iter;
+        	--tmp;
+        	last_pos = idx;
+        	last_iter = tmp;
+        	return tmp;
+    	}
     	auto out = dataList.cbegin();
     	while (out != dataList.cend()) {
         	if (idx < (*out)->listSize()) {
             	auto in = (*out)->cbegin();
-            	for (int i = 0; i < idx; ++i) ++in;
-            	return iterator(this, out, in);
+            	for (int i = 0; i < idx; ++i) {++in;}
+				last_pos = idx;
+    			cache_valid = true;
+				auto target_iter = iterator(this, out, in);
+				last_iter = target_iter;
+            	return target_iter;
         	}
         	idx -= (*out)->listSize();
         	++out;
@@ -501,12 +522,33 @@ public:
 	const_iterator get_const_iterator(int idx) const {
  	    if (idx < 0 || idx > allSize) {throw index_out_of_bound();}
         if (idx == allSize) return cend();
+		if (cache_valid && idx == last_pos) {
+        	return last_iter;
+    	}
+		if (cache_valid && idx == last_pos + 1) {
+        	iterator tmp = last_iter;
+        	++tmp;
+        	last_pos = idx;
+        	last_iter = tmp;
+        	return tmp;
+    	}
+		if (cache_valid && idx == last_pos - 1) {
+        	iterator tmp = last_iter;
+        	--tmp;
+        	last_pos = idx;
+        	last_iter = tmp;
+        	return tmp;
+    	}
     	auto out = dataList.cbegin();
     	while (out != dataList.cend()) {
         	if (idx < (*out)->listSize()) {
             	auto in = (*out)->cbegin();
-            	for (int i = 0; i < idx; ++i) ++in;
-            	return const_iterator(this, out, in);
+            	for (int i = 0; i < idx; ++i) {++in;}
+				last_pos = idx;
+    			cache_valid = true;
+				auto target_iter = const_iterator(this, out, in);
+				last_iter = target_iter;
+            	return target_iter;
         	}
         	idx -= (*out)->listSize();
         	++out;
@@ -547,6 +589,11 @@ public:
 		typename sjtu::double_list<T>::iterator subIter = (*iter) -> cend();
 		return const_iterator(this, iter, subIter);
 	}
+private:
+	mutable size_t last_pos = -1;
+	mutable iterator last_iter = end();
+	mutable bool cache_valid = false;
+public:
 
   	deque() {dataList = double_list<double_list<T>*>();}
 
@@ -563,6 +610,7 @@ public:
 	}
 
   	deque &operator=(const deque &other) {
+		cache_valid = false;
 		if (this == &other) {
             return *this;
         }//self = self.
@@ -614,7 +662,7 @@ public:
   	const T &back() const {
 		if (!allSize){throw container_is_empty();}
         return *(get_const_iterator(allSize - 1));
-	}
+	}//Might be *(--end()).
 
   	bool empty() const {return allSize == 0;}
 
@@ -622,6 +670,7 @@ public:
 
   	void clear() {
 		allSize = 0;
+		cache_valid = false;
 		updateBoundarySize();
 		while(!dataList.empty()){
 			auto iter = dataList.begin();
@@ -632,6 +681,7 @@ public:
 	}
 
 	void split(typename sjtu::double_list<double_list<T>*>::iterator iter){
+		cache_valid = false;
 		double_list<T>* ptr = *iter;
 		double_list<T>* newList = new double_list<T>();
 		size_t cnt = 1;
@@ -647,6 +697,7 @@ public:
 	}//Split origin into (ori, nxt).
 
 	void merge(typename sjtu::double_list<double_list<T>*>::iterator vicIter){
+		cache_valid = false;
 		if (vicIter == dataList.begin()){return;}
 		typename sjtu::double_list<double_list<T>*>::iterator prevIter = vicIter;
 		--prevIter;
@@ -661,6 +712,7 @@ public:
 	}//Merge vic into its prev list.
 
   	iterator insert(iterator pos, const T &value) {
+		cache_valid = false;
 		if (pos.parent != this) {throw invalid_iterator();}
 		if (allSize == 0 && pos == end()) {
 			sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
@@ -682,6 +734,7 @@ public:
   	}
 
   	iterator erase(iterator pos) {
+		cache_valid = false;
 		if (!allSize){throw runtime_error();}
 		if (pos.parent != this || pos == end()){throw invalid_iterator();}
 		int index = get_index(pos);
@@ -707,6 +760,7 @@ public:
 	}
 
   	void push_back(const T &value) {
+		cache_valid = false;
 		if (!allSize){
 			typename sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
 			ptr -> insert_tail(value);
@@ -725,6 +779,7 @@ public:
   	}
 
   	void pop_back() {
+		cache_valid = false;
 		if (!allSize){
 			throw runtime_error();
 		} else {
@@ -743,6 +798,7 @@ public:
 	}
 
   	void push_front(const T &value) {
+		cache_valid = false;
 		if (!allSize){
 			typename sjtu::double_list<T>* ptr = new sjtu::double_list<T>();
 			ptr -> insert_head(value);
@@ -761,6 +817,7 @@ public:
 	}
 
   	void pop_front() {
+		cache_valid = false;
 		if (!allSize){
 			throw runtime_error();
 		} else {
